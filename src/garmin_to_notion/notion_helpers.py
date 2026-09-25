@@ -8,6 +8,7 @@ from collections import Counter
 from functools import wraps
 from typing import Any
 
+from notion_client import APIResponseError
 from notion_client import Client as NotionClient
 
 logger = logging.getLogger(__name__)
@@ -109,6 +110,22 @@ def get_prop(props: dict, name: str, prop_type: str) -> Any:
     if prop_type == "url":
         return prop.get("url")
     return None
+
+
+def query_select_filter(notion: NotionClient, database_id: str, filter: dict) -> list[dict]:
+    """Query a database with a filter that matches on select options.
+
+    Notion rejects a filter on a select option no page has used yet
+    ('select option "X" not found for property "Y"') instead of returning nothing.
+    No page can have that option, so return no results; creating the page then
+    adds the option to the database.
+    """
+    try:
+        return notion.databases.query(database_id=database_id, filter=filter)["results"]
+    except APIResponseError as e:
+        if "not found for property" in str(e):
+            return []
+        raise
 
 
 def fetch_all_pages(
