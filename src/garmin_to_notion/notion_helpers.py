@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import Counter
 from functools import wraps
 from typing import Any
 
@@ -21,20 +22,39 @@ EXPECTED_DATABASES = {
 }
 
 
+def _parent_id(db: dict[str, Any]) -> Any:
+    """Return the id of the page/block that contains a database."""
+    parent = db.get("parent", {})
+    return parent.get(parent.get("type", ""))
+
+
 def discover_databases(notion: NotionClient) -> dict[str, str]:
     """Search Notion for databases by name and return {field_name: db_id} mapping."""
     results = notion.search(
         filter={"property": "object", "value": "database"},
     ).get("results", [])
 
-    found: dict[str, str] = {}
+    candidates: dict[str, list[dict[str, Any]]] = {}
     for db in results:
         title_parts = db.get("title", [])
         title = title_parts[0]["plain_text"] if title_parts else ""
         if title in EXPECTED_DATABASES:
-            field = EXPECTED_DATABASES[title]
-            found[field] = db["id"]
-            logger.debug("Discovered database '%s' -> %s", title, db["id"])
+            candidates.setdefault(title, []).append(db)
+
+    # Other pages (e.g. an older fitness template) can hold databases with the same
+    # names. Prefer the page that contains the most of the expected databases.
+    per_parent = Counter(_parent_id(db) for dbs in candidates.values() for db in dbs)
+    found: dict[str, str] = {}
+    for title, dbs in candidates.items():
+        db = max(dbs, key=lambda d: per_parent[_parent_id(d)])
+        if len(dbs) > 1:
+            logger.warning(
+                "Found %d databases named '%s', using %s (the page with the most "
+                "Fitness Tracker databases)",
+                len(dbs), title, db["id"],
+            )
+        found[EXPECTED_DATABASES[title]] = db["id"]
+        logger.debug("Discovered database '%s' -> %s", title, db["id"])
 
     missing = [name for name, field in EXPECTED_DATABASES.items() if field not in found]
     if missing:
