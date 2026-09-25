@@ -20,7 +20,7 @@ from garmin_to_notion.mappings import (
     NAME_OVERRIDE_MAP,
     SKIP_TYPES,
 )
-from garmin_to_notion.notion_helpers import fetch_all_pages, get_prop
+from garmin_to_notion.notion_helpers import fetch_all_pages, get_prop, query_select_filter
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,8 @@ def _workout_exists(
     # Fallback: legacy records matched by date + modality
     if date_str:
         date_only = date_str[:10]
-        query2 = notion.databases.query(
+        results = query_select_filter(
+            notion,
             database_id=db_id,
             filter={
                 "and": [
@@ -101,8 +102,8 @@ def _workout_exists(
                 ]
             },
         )
-        if query2["results"]:
-            return query2["results"][0]
+        if results:
+            return results[0]
 
     return None
 

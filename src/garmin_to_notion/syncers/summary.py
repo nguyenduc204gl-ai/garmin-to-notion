@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from notion_client import Client as NotionClient
 
 from garmin_to_notion.config import Settings
-from garmin_to_notion.notion_helpers import fetch_all_pages, get_prop
+from garmin_to_notion.notion_helpers import fetch_all_pages, get_prop, query_select_filter
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +276,8 @@ def _summary_exists(
     modality: str,
 ) -> dict | None:
     """Check if a summary entry already exists by Start date + period + modality."""
-    query = notion.databases.query(
+    results = query_select_filter(
+        notion,
         database_id=db_id,
         filter={
             "and": [
@@ -286,7 +287,7 @@ def _summary_exists(
             ]
         },
     )
-    return query["results"][0] if query["results"] else None
+    return results[0] if results else None
 
 
 def _build_properties(summary: dict) -> dict:

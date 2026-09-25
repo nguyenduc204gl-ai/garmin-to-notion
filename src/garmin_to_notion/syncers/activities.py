@@ -18,6 +18,7 @@ from garmin_to_notion.formatters import (
     gmt_to_local,
 )
 from garmin_to_notion.mappings import ACTIVITY_EMOJIS
+from garmin_to_notion.notion_helpers import query_select_filter
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +137,8 @@ def _activity_exists(
     lookup_min = activity_date - timedelta(minutes=5)
     lookup_max = activity_date + timedelta(minutes=5)
 
-    query = notion.databases.query(
+    results = query_select_filter(
+        notion,
         database_id=database_id,
         filter={
             "and": [
@@ -153,7 +155,6 @@ def _activity_exists(
             ]
         },
     )
-    results = query["results"]
     return results[0] if results else None
 
 
